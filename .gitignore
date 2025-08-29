@@ -1,0 +1,7 @@
+.env
+.idea
+.mypy_cache
+__pycache__
+autolog.db
+alembic.ini
+alembic
