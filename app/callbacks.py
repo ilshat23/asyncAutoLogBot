@@ -42,7 +42,7 @@ async def delete_car_totally(callback: CallbackQuery, state: FSMContext):
     await delete_car(car_id)
     await callback.message.edit_text(f'{cached_data[user_id].get('selected_car')} со '
                                      'всеми записями удалён.')
-    cached_data.clear()
+    cached_data.pop(user_id)
     await state.clear()
 
 
@@ -51,7 +51,7 @@ async def cancel_deleting(callback: CallbackQuery, state: FSMContext):
     user_id = callback.from_user.id
     await callback.message.edit_text(f'Удаление {cached_data[user_id].get('car_name')} '
                                      'отменено.')
-    cached_data.clear()
+    cached_data.pop(user_id)
     await state.clear()
 
 
@@ -68,7 +68,7 @@ async def choice_handler(callback: CallbackQuery):
 @callback_router.callback_query(F.data == 'back')
 async def get_back(callback: CallbackQuery, state: FSMContext):
     await callback.message.delete()
-    cached_data.clear()
+    cached_data.pop(message.from_user.id)
     await state.clear()
 
 
@@ -100,13 +100,15 @@ async def show_history(callback: CallbackQuery):
         else:
             await callback.message.edit_text('История пуста.')
 
+        cached_data.pop(callback.from_user.id)
+
 
 @callback_router.callback_query(F.data == 'clear_history')
 async def clear_car_history(callback: CallbackQuery):
 
     car_name = await get_car_and_update_cache(callback)
     car_id = cached_data[callback.from_user.id].get(car_name)
-    cached_data.clear()
+    cached_data.pop(callback.from_user.id)
 
     async with async_session() as session:
         await session.execute(

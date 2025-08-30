@@ -68,15 +68,17 @@ async def set_mileage(message: Message, state: FSMContext):
 async def set_desc(message: Message, state: FSMContext):
     desc = message.text.strip()
     data = await state.get_data()
+    user_id = message.from_user.id
     async with async_session() as session:
         repair_note = RepairHistory(
             repair_description=desc,
             mileage=data.get('mileage'),
-            car_id=cached_data[message.from_user.id].get('selected_car_id')
+            car_id=cached_data[user_id].get('selected_car_id')
         )
         session.add(repair_note)
         await session.commit()
         await state.clear()
+        cached_data.pop(user_id)
     await message.reply('Запись добавлена!')
 
 
@@ -88,12 +90,13 @@ async def delete_car(message: Message, state: FSMContext):
 
 @state_router.message(RenameState.name)
 async def rename_car(message: Message, state: FSMContext):
+    user_id = message.from_user.id
     new_name = message.text.strip()
     if new_name.startswith('/'):
         await message.reply('Название не может начинаться с <b>/</b>',
                             parse_mode='Html')
     else:
-        car_id = cached_data[message.from_user.id].get('selected_car_id')
+        car_id = cached_data[user_id].get('selected_car_id')
         async with async_session() as session:
             await session.execute(
                 update(Car).where(Car.id == car_id).values(car_name=new_name)
@@ -101,5 +104,5 @@ async def rename_car(message: Message, state: FSMContext):
             await session.commit()
             await message.answer(f'Название <b>{new_name}</b> сохранено.',
                                  parse_mode='Html')
-            cached_data.clear()
+            cached_data.pop(user_id)
             await state.clear()
