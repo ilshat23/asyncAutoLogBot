@@ -7,15 +7,24 @@ from core.dependencies import (
     get_async_session, get_car_repository, get_car_service,
     get_repair_repository, get_repair_service
 )
-from core.database.models import Car
 from utils.keyboards import car_delete_kb, history_delete_kb, what_to_do_kb
-from routers.user_states import RepairInfoReg, RenameState
+from routers.user_states import RepairInfoReg, CarRename
 
 
-callback_router = Router()
+car_action_router = Router()
 
 
-@callback_router.callback_query(F.data.startswith('add_service_notation'))
+@car_action_router.callback_query(F.data.startswith('select'))
+async def choice_handler(callback: CallbackQuery):
+    car_name = callback.data.split(':')[-1]
+
+    await callback.message.edit_text(
+        f'Что хочешь сделать с {car_name}?',
+        reply_markup=what_to_do_kb(car_name)
+    )
+
+
+@car_action_router.callback_query(F.data.startswith('add_service_notation'))
 async def add_sn_callback(callback: CallbackQuery,
                           state: FSMContext) -> None:
     car_name = callback.data.split(':')[-1]
@@ -28,7 +37,7 @@ async def add_sn_callback(callback: CallbackQuery,
     await state.update_data(car_name=car_name)
 
 
-@callback_router.callback_query(F.data.startswith('delete_my_car'))
+@car_action_router.callback_query(F.data.startswith('delete_my_car'))
 async def del_my_car_callback(callback: CallbackQuery):
     car_name = callback.data.split(':')[-1]
     user_id = callback.from_user.id
@@ -48,63 +57,7 @@ async def del_my_car_callback(callback: CallbackQuery):
     )
 
 
-@callback_router.callback_query(F.data == 'delete')
-async def delete_car_totally(callback: CallbackQuery):
-    user_id = callback.from_user.id
-    car_name = cached_data[callback.from_user.id].get('selected_car')
-
-    if car_name is None:
-        await callback.message.answer(
-            'При удалении возникла ошибка, попробуй снова.'
-        )
-        return
-
-    async with get_async_session() as session:
-        car_service = get_car_service(
-            get_car_repository(session)
-        )
-
-        car: Car = await car_service.get_car_or_id(
-            car_name,
-            user_id,
-            instance_mode=True
-        )
-        await car_service.delete_car(car)
-
-    await callback.message.edit_text(
-        f'{car_name} со всеми записями удалён.'
-    )
-    cached_data.pop(user_id, None)
-
-
-@callback_router.callback_query(F.data == 'cancel')
-async def cancel_deleting(callback: CallbackQuery, state: FSMContext):
-    user_id = callback.from_user.id
-    await callback.message.edit_text(
-        'Удаление отменено.'
-    )
-    cached_data.pop(user_id, None)
-    await state.clear()
-
-
-@callback_router.callback_query(F.data.startswith('select'))
-async def choice_handler(callback: CallbackQuery):
-    car_name = callback.data.split(':')[-1]
-
-    await callback.message.edit_text(
-        f'Что хочешь сделать с {car_name}?',
-        reply_markup=what_to_do_kb(car_name)
-    )
-
-
-@callback_router.callback_query(F.data == 'back')
-async def get_back(callback: CallbackQuery, state: FSMContext):
-    await callback.message.delete()
-    cached_data.pop(callback.from_user.id, None)
-    await state.clear()
-
-
-@callback_router.callback_query(F.data.startswith('show_history'))
+@car_action_router.callback_query(F.data.startswith('show_history'))
 async def show_history(callback: CallbackQuery):
     async with get_async_session() as session:
         car_service = get_car_service(
@@ -142,7 +95,7 @@ async def show_history(callback: CallbackQuery):
         cached_data.pop(user_id, None)
 
 
-@callback_router.callback_query(F.data.startswith('clear_history'))
+@car_action_router.callback_query(F.data.startswith('clear_history'))
 async def clear_car_history_callback(callback: CallbackQuery):
     car_name = callback.data.split(':')[-1]
     user_id = callback.from_user.id
@@ -157,34 +110,9 @@ async def clear_car_history_callback(callback: CallbackQuery):
     )
 
 
-@callback_router.callback_query(F.data.startswith)
-async def clear_car_history(callback: CallbackQuery):
-    async with get_async_session() as session:
-        car_service = get_car_service(
-            get_car_repository(session)
-        )
-        repair_service = get_repair_service(
-            get_repair_repository(session)
-        )
-        user_id = callback.from_user.id
-        car_name = cached_data[user_id].get('selected_car')
-
-        if car_name is None:
-            callback.message.reply('Произошла ошибка, попробуй снова.')
-
-        car_id: int = await car_service.get_car_or_id(car_name, user_id)
-        await repair_service.clear_car_history(car_id)
-        cached_data.pop(callback.from_user.id, None)
-
-        await callback.message.edit_text(
-            f'История <b>{car_name}</b> удалена.',
-            parse_mode='Html'
-        )
-
-
-@callback_router.callback_query(F.data.startswith('rename'))
+@car_action_router.callback_query(F.data.startswith('rename'))
 async def rename_car(callback: CallbackQuery, state: FSMContext):
     car_name = callback.data.split(':')[-1]
-    await state.set_state(RenameState.name)
+    await state.set_state(CarRename.name)
     await state.update_data(car_name=car_name)
     await callback.message.edit_text('Введи новое название.')

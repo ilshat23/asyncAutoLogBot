@@ -5,8 +5,9 @@ import os
 from aiogram import Bot, Dispatcher
 from dotenv import load_dotenv
 
-from routers.callbacks import callback_router
-from routers.handlers import handler_router
+from routers.car_action_callbacks import car_action_router
+from routers.car_confirmation_callbacks import car_confirmation_router
+from routers.menu_handlers import handler_router
 from routers.user_states import state_router
 from utils.utils import send_err_msg
 from clients.telegram_client import TelegramClient
@@ -27,7 +28,7 @@ def setup_app() -> tuple[Bot, Dispatcher, TelegramClient, str]:
 
     bot = Bot(TOKEN)
     dp = Dispatcher()
-    tg = TelegramClient(TOKEN, 'https://api.telegram.org')
+    tg = TelegramClient(TOKEN)
 
     return bot, dp, tg, ADMIN
 
@@ -45,14 +46,18 @@ def setup_logging():
 
 def include_routers(dp: Dispatcher):
     """Добавление всех роутеров."""
-    dp.include_router(callback_router)
+    dp.include_router(car_action_router)
+    dp.include_router(car_confirmation_router)
     dp.include_router(handler_router)
     dp.include_router(state_router)
 
 
 async def main():
+    """Сборка всех частей и запуск приложения."""
     bot, dp, tg_client, admin_chat_id = setup_app()
+    setup_logging()
     include_routers(dp)
+
     try:
         await dp.start_polling(bot)
     except Exception as error:

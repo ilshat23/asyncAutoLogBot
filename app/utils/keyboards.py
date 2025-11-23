@@ -22,6 +22,7 @@ history_delete_kb = InlineKeyboardMarkup(
     ]
 )
 
+
 async def inline_cars(
     cars: list[Car],
     user_id: int

@@ -1,27 +1,57 @@
+import logging as lg
 from typing import Optional
 
-from aiohttp import ClientSession
+
+from aiohttp import (
+    ClientError, ClientResponseError, ClientSession, ClientTimeout
+)
+
+
+logger = lg.getLogger(__name__)
 
 
 class TelegramClient:
-    def __init__(self, api_token: str, base_url: str) -> None:
+    BASE_URL = 'https://api.telegram.org'
+
+    def __init__(self, api_token: str, timeout: float = 30.0) -> None:
         self.api_token = api_token
-        self.base_url = base_url
+        self.timeout = ClientTimeout(total=timeout)
 
-    async def _prepare_url(self, method: str) -> str:
-        full_url = f'{self.base_url}/bot{self.api_token}/'
+    def _prepare_url(self, method: str) -> str:
+        """Подготавливает URL для запроса."""
+        method = method.lstrip('/')
+        return f'{self.BASE_URL}/bot{self.api_token}/{method}'
 
-        if method:
-            full_url += method
+    async def post(
+        self,
+        method: str,
+        params: Optional[dict] = None,
+        body: Optional[dict] = None
+    ) -> dict | list | None:
+        """Делает POST-запрос к Telegram API."""
+        url = self._prepare_url(method)
 
-        return full_url
+        async with ClientSession(timeout=self.timeout) as session:
+            try:
+                async with session.post(
+                    url,
+                    params=params,
+                    json=body,
+                    raise_for_status=True
+                ) as response:
+                    json_response = await response.json()
+                    return json_response
+            except ClientResponseError as e:
+                logger.error(
+                    f'Telegram API error {method}: {e.status} - {e.message}'
+                )
+            except ClientError as e:
+                logger.error(
+                    f'Network error in {method}: {str(e)}'
+                )
+            except Exception as e:
+                logger.error(
+                    f'Unexpected error in {method}: {str(e)}'
+                )
 
-    async def post(self, method: str,
-                   params: Optional[dict] = None,
-                   body: Optional[dict] = None) -> dict | list:
-        url = await self._prepare_url(method)
-
-        async with ClientSession() as session:
-            async with session.post(url, params=params, json=body) as response:
-                json_response = await response.json()
-                return json_response
+        return None

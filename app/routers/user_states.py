@@ -2,7 +2,6 @@ from aiogram import Router
 from aiogram.types import Message
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
-from sqlalchemy import update
 
 from core.cache import cached_data
 from core.database.models import Car
@@ -27,7 +26,7 @@ class RepairInfoReg(StatesGroup):
     desc = State()
 
 
-class RenameState(StatesGroup):
+class CarRename(StatesGroup):
     name = State()
 
 
@@ -36,7 +35,7 @@ class CarDelete(StatesGroup):
 
 
 @state_router.message(CarReg.name)
-async def set_car_name(
+async def register_car(
     message: Message,
     state: FSMContext
 ):
@@ -115,17 +114,21 @@ async def set_desc(message: Message, state: FSMContext):
 
 @state_router.message(CarDelete.confirmation)
 async def delete_car(message: Message, state: FSMContext):
-    await message.answer('Можно и отменить свой выбор',
-                         reply_markup=car_delete_kb)
+    await message.answer(
+        'Можно отменить свой выбор',
+        reply_markup=car_delete_kb
+    )
 
 
-@state_router.message(RenameState.name)
+@state_router.message(CarRename.name)
 async def rename_car(message: Message, state: FSMContext):
     user_id = message.from_user.id
     new_name = message.text.strip()
     if new_name.startswith('/'):
-        await message.reply('Название не может начинаться с <b>/</b>',
-                            parse_mode='Html')
+        await message.reply(
+            'Название не может начинаться с <b>/</b>',
+            parse_mode='Html'
+        )
     else:
         async with get_async_session() as session:
             car_service = get_car_service(
@@ -134,7 +137,9 @@ async def rename_car(message: Message, state: FSMContext):
             data = await state.get_data()
             car_name = data['car_name']
             car: Car = await car_service.get_car_or_id(
-                car_name, user_id, instance_mode=True
+                car_name,
+                user_id,
+                instance_mode=True
             )
             await car_service.rename_car(car, car_name)
 
