@@ -19,6 +19,7 @@ handler_router = Router()
 async def start(message: Message, state: FSMContext):
     user_id = message.from_user.id
     user_exists = True
+
     async with get_async_session() as session:
         user_repo = get_user_repository(session)
         user_service = get_user_service(user_repo)
