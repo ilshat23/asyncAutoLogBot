@@ -7,6 +7,7 @@ from core.dependencies import (
     get_async_session, get_car_repository, get_car_service,
     get_repair_repository, get_repair_service
 )
+from sqlalchemy.ext.asyncio import AsyncSession
 from utils.keyboards import car_delete_kb, history_delete_kb, what_to_do_kb
 from routers.user_states import RepairInfoReg, CarRename
 
@@ -58,41 +59,40 @@ async def del_my_car_callback(callback: CallbackQuery):
 
 
 @car_action_router.callback_query(F.data.startswith('show_history'))
-async def show_history(callback: CallbackQuery):
-    async with get_async_session() as session:
-        car_service = get_car_service(
-            get_car_repository(session)
-        )
-        repair_service = get_repair_service(
-            get_repair_repository(session)
-        )
-        user_id = callback.from_user.id
-        car_name = callback.data.split(':')[-1]
-        car_id: int = await car_service.get_car_or_id(car_name, user_id)
-        await callback.answer(f'Ты выбрал {car_name}!')
+async def show_history(callback: CallbackQuery, session: AsyncSession):
+    car_service = get_car_service(
+        get_car_repository(session)
+    )
+    repair_service = get_repair_service(
+        get_repair_repository(session)
+    )
+    user_id = callback.from_user.id
+    car_name = callback.data.split(':')[-1]
+    car_id: int = await car_service.get_car_or_id(car_name, user_id)
+    await callback.answer(f'Ты выбрал {car_name}!')
 
-        notes = await repair_service.get_repair_history(car_id)
+    notes = await repair_service.get_repair_history(car_id)
 
-        if notes:
-            result_message = [f'📒История по {car_name}:']
+    if notes:
+        result_message = [f'📒История по {car_name}:']
 
-            for note in notes:
-                created_at = note.repair_date
-                mileage = note.mileage
-                desc = note.repair_description
+        for note in notes:
+            created_at = note.repair_date
+            mileage = note.mileage
+            desc = note.repair_description
 
-                text = (
-                    f'1️⃣Запись от 📅 {created_at}.\n'
-                    f'2️⃣Пробег: 🚚 <b>{mileage}</b> км.\n'
-                    f'3️⃣Выполненные действия🔧:\n<i>{desc}</i>.'
-                )
-                result_message.append(text)
-            await callback.message.edit_text('\n\n\n'.join(result_message),
-                                             parse_mode='Html')
-        else:
-            await callback.message.edit_text('История пуста.')
+            text = (
+                f'1️⃣Запись от 📅 {created_at}.\n'
+                f'2️⃣Пробег: 🚚 <b>{mileage}</b> км.\n'
+                f'3️⃣Выполненные действия🔧:\n<i>{desc}</i>.'
+            )
+            result_message.append(text)
+        await callback.message.edit_text('\n\n\n'.join(result_message),
+                                         parse_mode='Html')
+    else:
+        await callback.message.edit_text('История пуста.')
 
-        cached_data.pop(user_id, None)
+    cached_data.pop(user_id, None)
 
 
 @car_action_router.callback_query(F.data.startswith('clear_history'))

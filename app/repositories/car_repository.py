@@ -19,11 +19,11 @@ class CarRepository:
         )
         self.session.add(car)
 
-    async def get_car_by_id(self, car_id: int) -> Car | None:
+    async def get_car_by_id(self, car_id: int) -> Car:
         car = await self.session.get(Car, car_id)
         return car
 
-    async def get_car_by_name(self, car_name: str, user_id: int) -> Car | None:
+    async def get_car_by_name(self, car_name: str, user_id: int) -> Car:
         car = await self.session.scalar(
             select(Car).filter(
                 Car.telegram_id == user_id,
@@ -40,5 +40,6 @@ class CarRepository:
         res = await self.session.scalars(stmt)
         return res.all()
 
-    async def rename_car(self, car: Car, car_name: str):
+    @staticmethod
+    async def rename_car(car: Car, car_name: str):
         car.car_name = car_name
